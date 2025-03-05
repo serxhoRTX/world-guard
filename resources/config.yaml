@@ -1,0 +1,14 @@
+Regions:
+  Region1:
+    boundaries:
+      x1: 0
+      y1: 0
+      z1: 0
+      x2: 10
+      y2: 0
+      z2: 10
+    permissions:
+      canPlace: false
+      canBreak: false
+      canPvp: false
+      canTakeDamage: false
