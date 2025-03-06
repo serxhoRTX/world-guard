@@ -37,12 +37,12 @@ private:
         endstone::ColorFormat::Reset;
 
 public:
-    void onLoad() override { getLogger().info("World Guard was loaded !"); }
-    void onDisable() override { getLogger().info("World Guard was disabled !"); }
+    void onLoad() override { getLogger().info( "World Guard was loaded !"); }
+    void onDisable() override { getLogger().info( "World Guard was disabled !"); }
 
     void onEnable() override
     {
-        getLogger().info("WorldGuard was enabled");
+        getLogger().info( "WorldGuard was enabled");
         registerEvent(&Guard::onBreakEvent, *this);
         readRegionsFromFile(configPath);
         registerEvent(&Guard::onPlaceEvent, *this);
@@ -420,7 +420,7 @@ public:
 
             writeRegionToFile(configPath, newRegionName, settup_region_);
             player->sendMessage(wg + "Region saved !");
-            player->sendMessage(wg + "Restarting the server is required");
+            readRegionsFromFileOnReload(configPath);
         });
         player.sendForm(modal_form);
     }
@@ -467,7 +467,7 @@ public:
                                  {
                                      deleteRegionFromFile(configPath, delRegion);
                                      player->sendMessage(wg + "Region deleted");
-                                     player->sendMessage(wg + "Restart required");
+                                     readRegionsFromFileOnReload(configPath);
                                  })
                       .addButton(endstone::ColorFormat::Bold + "no");
         player.sendForm(confirm_delete);
@@ -486,5 +486,41 @@ public:
             });
         }
         player.sendForm(delete_region_form);
+    }
+
+    void readRegionsFromFileOnReload(const std::string& filename)
+    {
+        YAML::Node config = YAML::LoadFile(filename);
+
+        if (config["Regions"])
+        {
+            std::unordered_map<std::string , Region> updateRegions;
+            for (const auto& regionNode : config["Regions"])
+            {
+                std::string regionName = regionNode.first.as<std::string>();
+
+                Region region;
+                region.boundaries.x1 = regionNode.second["boundaries"]["x1"].as<int>();
+                region.boundaries.y1 = regionNode.second["boundaries"]["y1"].as<int>();
+                region.boundaries.z1 = regionNode.second["boundaries"]["z1"].as<int>();
+                region.boundaries.x2 = regionNode.second["boundaries"]["x2"].as<int>();
+                region.boundaries.y2 = regionNode.second["boundaries"]["y2"].as<int>();
+                region.boundaries.z2 = regionNode.second["boundaries"]["z2"].as<int>();
+                region.boundaries.dimension = regionNode.second["boundaries"]["dimension"].as<std::string>();
+
+                region.permissions.canPlace = regionNode.second["permissions"]["canPlace"].as<bool>();
+                region.permissions.canBreak = regionNode.second["permissions"]["canBreak"].as<bool>();
+                region.permissions.canPvp = regionNode.second["permissions"]["canPvp"].as<bool>();
+                region.permissions.canTakeDamage = regionNode.second["permissions"]["canTakeDamage"].as<bool>();
+
+                updateRegions[regionName] = region;
+                getLogger().info("reloaded region: " + regionName);
+            }
+            Regions = updateRegions;
+        }
+        else
+        {
+            getLogger().warning("No regions found in the YAML file!");
+        }
     }
 };
