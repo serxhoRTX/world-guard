@@ -9,6 +9,7 @@
 #include <endstone/form/controls/text_input.h>
 #include <endstone/form/controls/toggle.h>
 #include <endstone/event/block/block_place_event.h>
+#include <endstone/level/dimension.h>
 
 
 class Guard : public endstone::Plugin
@@ -19,6 +20,7 @@ private:
         struct Boundaries
         {
             int x1, y1, z1, x2, y2, z2;
+            std::string dimension;
         } boundaries;
 
         struct Permissions
@@ -68,18 +70,18 @@ public:
 
     void onBreakEvent(endstone::BlockBreakEvent& event)
     {
-        if (locatedInsideRegion(event.getBlock().getLocation(), 0))
+        if (locatedInsideRegion(event.getBlock().getLocation(), 0, event.getBlock().getDimension().getName()))
         {
             event.cancel();
             return;
         }
-
 
         if (processOngoing && event.getPlayer().getName() == requestingPlayer)
         {
             settup_region_.boundaries.x1 = event.getBlock().getX();
             settup_region_.boundaries.y1 = event.getBlock().getY();
             settup_region_.boundaries.z1 = event.getBlock().getZ();
+            settup_region_.boundaries.dimension = event.getBlock().getDimension().getName();
             processOngoing = false;
             oneOutOfTwo = true;
             event.getPlayer().sendMessage(wg + "position 1 selected");
@@ -87,6 +89,11 @@ public:
         }
         else if (oneOutOfTwo && event.getPlayer().getName() == requestingPlayer)
         {
+            if (event.getBlock().getDimension().getName() != settup_region_.boundaries.dimension)
+            {
+                event.getPlayer().sendMessage(wg + "both positions have to be in the same dimension");
+                return;
+            }
             settup_region_.boundaries.x2 = event.getBlock().getX();
             settup_region_.boundaries.y2 = event.getBlock().getY();
             settup_region_.boundaries.z2 = event.getBlock().getZ();
@@ -106,7 +113,7 @@ public:
 
     void onPlaceEvent(endstone::BlockPlaceEvent& event)
     {
-        if (locatedInsideRegion(event.getBlock().getLocation(), 1))
+        if (locatedInsideRegion(event.getBlock().getLocation(), 1, event.getBlock().getDimension().getName()))
             event.cancel();
     }
 
@@ -258,6 +265,7 @@ public:
                 region.boundaries.x2 = regionNode.second["boundaries"]["x2"].as<int>();
                 region.boundaries.y2 = regionNode.second["boundaries"]["y2"].as<int>();
                 region.boundaries.z2 = regionNode.second["boundaries"]["z2"].as<int>();
+                region.boundaries.dimension = regionNode.second["boundaries"]["dimension"].as<std::string>();
 
                 region.permissions.canPlace = regionNode.second["permissions"]["canPlace"].as<bool>();
                 region.permissions.canBreak = regionNode.second["permissions"]["canBreak"].as<bool>();
@@ -291,6 +299,7 @@ public:
         newRegion["boundaries"]["x2"] = region.boundaries.x2;
         newRegion["boundaries"]["y2"] = region.boundaries.y2;
         newRegion["boundaries"]["z2"] = region.boundaries.z2;
+        newRegion["boundaries"]["dimension"] = region.boundaries.dimension;
 
         newRegion["permissions"]["canPlace"] = region.permissions.canPlace;
         newRegion["permissions"]["canBreak"] = region.permissions.canBreak;
@@ -416,10 +425,12 @@ public:
         player.sendForm(modal_form);
     }
 
-    bool locatedInsideRegion(const endstone::Location& location, const int& number)
+    bool locatedInsideRegion(const endstone::Location& location, const int& number, const std::string dim)
     {
         for (auto it = Regions.begin(); it != Regions.end(); it++)
         {
+            if (it->second.boundaries.dimension != dim)
+                continue;
             int x = location.getX(), y = location.getY(), z = location.getZ();
             int maxX = it->second.boundaries.x1, minX = it->second.boundaries.x2;
             int maxY = it->second.boundaries.y1, minY = it->second.boundaries.y2;
