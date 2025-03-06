@@ -19,3 +19,6 @@ within a minecraft world and chose what can or cannot be done within said region
 - /wg
 ---
 ![image](https://github.com/user-attachments/assets/660a5410-e5c1-4939-bfb8-c195caa57485)
+
+# Changes
+Now supports all dimensions as well as custom dimensions
