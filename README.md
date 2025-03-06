@@ -22,3 +22,4 @@ within a minecraft world and chose what can or cannot be done within said region
 
 # Changes
 Now supports all dimensions as well as custom dimensions
+No longer requires restart
