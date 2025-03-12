@@ -33,16 +33,14 @@ private:
     Region settup_region_;
     static bool processOngoing, oneOutOfTwo;
     static std::string requestingPlayer, newRegionName, configPath, delRegion;
-    std::string wg = endstone::ColorFormat::Red + endstone::ColorFormat::Bold + "[WorldGuard] " +
-        endstone::ColorFormat::Reset;
 
 public:
-    void onLoad() override { getLogger().info( "World Guard was loaded !"); }
-    void onDisable() override { getLogger().info( "World Guard was disabled !"); }
+    void onLoad() override { getLogger().info("World Guard was loaded !"); }
+    void onDisable() override { getLogger().info("World Guard was disabled !"); }
 
     void onEnable() override
     {
-        getLogger().info( "WorldGuard was enabled");
+        getLogger().info("WorldGuard was enabled");
         registerEvent(&Guard::onBreakEvent, *this);
         readRegionsFromFile(configPath);
         registerEvent(&Guard::onPlaceEvent, *this);
@@ -72,8 +70,11 @@ public:
     {
         if (locatedInsideRegion(event.getBlock().getLocation(), 0, event.getBlock().getDimension().getName()))
         {
-            event.cancel();
-            return;
+            if (event.getPlayer().getGameMode() != endstone::GameMode::Creative)
+            {
+                event.cancel();
+                return;
+            }
         }
 
         if (processOngoing && event.getPlayer().getName() == requestingPlayer)
@@ -84,21 +85,27 @@ public:
             settup_region_.boundaries.dimension = event.getBlock().getDimension().getName();
             processOngoing = false;
             oneOutOfTwo = true;
-            event.getPlayer().sendMessage(wg + "position 1 selected");
+            event.getPlayer().sendTip(
+                "First position set to (" + std::to_string(settup_region_.boundaries.x1) + "," +
+                std::to_string(settup_region_.boundaries.y1) + "," + std::to_string(
+                    settup_region_.boundaries.z1) + ")");
             event.cancel();
         }
         else if (oneOutOfTwo && event.getPlayer().getName() == requestingPlayer)
         {
             if (event.getBlock().getDimension().getName() != settup_region_.boundaries.dimension)
             {
-                event.getPlayer().sendMessage(wg + "both positions have to be in the same dimension");
+                event.getPlayer().sendTip("Both positions have to be in the same dimension !");
                 return;
             }
             settup_region_.boundaries.x2 = event.getBlock().getX();
             settup_region_.boundaries.y2 = event.getBlock().getY();
             settup_region_.boundaries.z2 = event.getBlock().getZ();
             oneOutOfTwo = false;
-            event.getPlayer().sendMessage(wg + "position 2 selected");
+            event.getPlayer().sendTip(
+                "Second position set to (" + std::to_string(settup_region_.boundaries.x2) + "," +
+                std::to_string(settup_region_.boundaries.y2) + "," + std::to_string(
+                    settup_region_.boundaries.z2) + ")");
             event.cancel();
 
             nameForm(event.getPlayer());
@@ -114,7 +121,10 @@ public:
     void onPlaceEvent(endstone::BlockPlaceEvent& event)
     {
         if (locatedInsideRegion(event.getBlock().getLocation(), 1, event.getBlock().getDimension().getName()))
-            event.cancel();
+            if (event.getPlayer().getGameMode() != endstone::GameMode::Creative)
+            {
+                event.cancel();
+            }
     }
 
 
@@ -125,13 +135,14 @@ public:
 
         for (const auto& it : Regions)
         {
-            editRegion.addButton(it.first, "textures/ui/welcome", [=](endstone::Player* player)
+            editRegion.addButton(it.first, "textures/ui/icon_recipe_nature", [=](endstone::Player* player)
             {
                 innerEditForm(*player, it.first);
             });
         }
 
-        editRegion.addButton(endstone::Message(endstone::ColorFormat::Bold + "back"), "textures/map/village_plains",
+        editRegion.addButton(endstone::Message(endstone::ColorFormat::Bold + "back"),
+                             "textures/ui/book_shiftleft_default",
                              [=](endstone::Player* player)
                              {
                                  createWorldGuardForm(*player);
@@ -195,7 +206,7 @@ public:
                 ++index;
             }
             updateRegionPermissionsInFile(configPath, region_name, Regions[region_name]);
-            player->sendMessage(wg + "changes saved !");
+            player->sendTip("Changes saved !");
         });
 
         player.sendForm(modal_form);
@@ -220,10 +231,10 @@ public:
                                              "textures/ui/cartography_table_zoom", [=](endstone::Player* player)
                                              {
                                                  startSettup(*player);
-                                                 player->sendMessage(wg + "break a block to select a position");
+                                                 player->sendTip("Break a block to select a position");
                                              })
                                   .addButton(endstone::Message(endstone::ColorFormat::Bold + "back"),
-                                             "textures/map/village_plains", [=](endstone::Player* player)
+                                             "textures/ui/book_shiftleft_default", [=](endstone::Player* player)
                                              {
                                                  createWorldGuardForm(*player);
                                              });
@@ -376,7 +387,7 @@ public:
 
         modal_form.setOnClose([=](endstone::Player* player)
         {
-            player->sendMessage(wg + "This process has been terminated start over");
+            player->sendTip("This process has been terminated start over");
             processOngoing = false;
             oneOutOfTwo = false;
             requestingPlayer = "";
@@ -419,7 +430,7 @@ public:
             }
 
             writeRegionToFile(configPath, newRegionName, settup_region_);
-            player->sendMessage(wg + "Region saved !");
+            player->sendTip("Region saved !");
             readRegionsFromFileOnReload(configPath);
         });
         player.sendForm(modal_form);
@@ -466,10 +477,10 @@ public:
                                  "textures/ui/icon_trash", [&](endstone::Player* player)
                                  {
                                      deleteRegionFromFile(configPath, delRegion);
-                                     player->sendMessage(wg + "Region deleted");
+                                     player->sendTip("Region deleted");
                                      readRegionsFromFileOnReload(configPath);
                                  })
-                      .addButton(endstone::ColorFormat::Bold + "no");
+                      .addButton(endstone::ColorFormat::Bold + "no", "textures/ui/book_shiftleft_default");
         player.sendForm(confirm_delete);
     }
 
@@ -479,7 +490,7 @@ public:
         delete_region_form.setTitle(endstone::ColorFormat::Bold + "Select region");
         for (const auto& entry : Regions)
         {
-            delete_region_form.addButton(entry.first, "textures/ui/icon_trash", [=](endstone::Player* player)
+            delete_region_form.addButton(entry.first, "textures/ui/icon_recipe_nature", [=](endstone::Player* player)
             {
                 delRegion = entry.first;
                 confirmDeleteForm(*player);
@@ -494,7 +505,7 @@ public:
 
         if (config["Regions"])
         {
-            std::unordered_map<std::string , Region> updateRegions;
+            std::unordered_map<std::string, Region> updateRegions;
             for (const auto& regionNode : config["Regions"])
             {
                 std::string regionName = regionNode.first.as<std::string>();
